@@ -1,7 +1,14 @@
 package com.maiwalsh;
 
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -15,37 +22,33 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.StringSerializer;
 
-public class JavaProducer {
+public class CelestrakTLEProducer {
     public static void main(String[] args) {
-        // Load configuration from environment variables
         String confluentBrokerServer = System.getenv("CONFLUENT_BROKER_SERVER");
         System.out.println("Retrieved broker environment variable successfully.");
 
         String topic = System.getenv("KAFKA_TOPIC");
         System.out.println("Retrieved kafka topic environment variable successfully.");
 
-        // Check if topic is null or empty and assign default topic if necessary
-            System.out.println(topic);
+        System.out.println(topic);
         if (topic == null || topic.isEmpty()) {
-            topic = "test-topic";
+            topic = "celestrak-tle";
             System.out.println(topic);
-
-            // Check if "test-topic" exists in Kafka, and create it if it does not exist
             System.out.println("Attempting admin client creation.");
             try (AdminClient adminClient = AdminClient.create(getAdminProperties(confluentBrokerServer))) {
                 Set<String> topics = adminClient.listTopics().names().get();
-                
+
                 System.out.println("All topics: ");
                 for (String t : topics) {
                     System.out.println(t);
                 }
 
-                if (!topics.contains("test-topic")) {
-                    System.out.println("Creating topic: test-topic");
-                    NewTopic newTopic = new NewTopic("test-topic", 1, (short) 1);
+                if (!topics.contains("celestrak-tle")) {
+                    System.out.println("Creating topic: celestrak-tle");
+                    NewTopic newTopic = new NewTopic("celestrak-tle", 1, (short) 1);
                     adminClient.createTopics(Collections.singletonList(newTopic)).all().get();
                 } else {
-                    System.out.println("Topic 'test-topic' already exists. Using it.");
+                    System.out.println("Topic 'celestrak-tle' already exists. Using it.");
                 }
             } catch (InterruptedException | ExecutionException e) {
                 System.err.println("Error while checking/creating topic: " + e.getMessage());
@@ -61,28 +64,30 @@ public class JavaProducer {
             System.exit(1);
         }
 
-        // Kafka producer configuration
         Properties properties = new Properties();
         properties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, confluentBrokerServer);
         properties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
         properties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
 
-        // Create Kafka producer instance
         try (Producer<String, String> producer = new KafkaProducer<>(properties)) {
             while (true) {
-                String timestamp = Instant.now().toString();
-                ProducerRecord<String, String> record = new ProducerRecord<>(topic, "heartbeat", timestamp);
-
-                producer.send(record, (metadata, exception) -> {
-                    if (exception == null) {
-                        System.out.println("Sent heartbeat: '" + timestamp + "' to topic: " + metadata.topic() +
-                                           " | partition: " + metadata.partition() +
-                                           " | offset: " + metadata.offset());
-                    } else {
-                        exception.printStackTrace();
+                try {
+                    List<String> tleRecords = fetchAndParseTLE();
+                    for (String tle : tleRecords) {
+                        ProducerRecord<String, String> record = new ProducerRecord<>(topic, "TLE", tle);
+                        producer.send(record, (metadata, exception) -> {
+                            if (exception == null) {
+                                System.out.println("Sent TLE record to topic: " + metadata.topic() +
+                                        " | partition: " + metadata.partition() +
+                                        " | offset: " + metadata.offset());
+                            } else {
+                                exception.printStackTrace();
+                            }
+                        });
                     }
-                });
-
+                } catch (IOException | InterruptedException e) {
+                    System.err.println("Failed to fetch or parse TLE data: " + e.getMessage());
+                }
                 Thread.sleep(intervalMs);
             }
         } catch (InterruptedException e) {
@@ -92,9 +97,29 @@ public class JavaProducer {
             System.err.println("Producer error: " + e.getMessage());
         }
     }
+
     private static Properties getAdminProperties(String bootstrapServers) {
         Properties props = new Properties();
         props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         return props;
+    }
+
+    private static List<String> fetchAndParseTLE() throws IOException, InterruptedException {
+        String celestrakUrl = "https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle";
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder().uri(URI.create(celestrakUrl)).build();
+        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+        List<String> tleChunks = new ArrayList<>();
+        if (response.statusCode() == 200) {
+            String[] lines = response.body().split("\n");
+            for (int i = 0; i + 2 < lines.length; i += 3) {
+                String tleRecord = lines[i].trim() + "\n" + lines[i + 1].trim() + "\n" + lines[i + 2].trim();
+                tleChunks.add(tleRecord);
+            }
+        } else {
+            throw new IOException("Failed to fetch TLE data. Status code: " + response.statusCode());
+        }
+        return tleChunks;
     }
 }

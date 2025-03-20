@@ -20,7 +20,7 @@
         <configuration>
           <archive>
             <manifest>
-              <mainClass>com.maiwalsh.JavaProducer</mainClass>
+              <mainClass>com.maiwalsh.CelestrakTLEProducer</mainClass>
             </manifest>
           </archive>
         </configuration>
@@ -37,7 +37,7 @@
             <configuration>
               <transformers>
                 <transformer>
-                  <mainClass>com.maiwalsh.JavaProducer</mainClass>
+                  <mainClass>com.maiwalsh.CelestrakTLEProducer</mainClass>
                 </transformer>
               </transformers>
             </configuration>

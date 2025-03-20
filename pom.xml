@@ -66,6 +66,20 @@
             <version>${slf4j.version}</version>
             <scope>runtime</scope>
         </dependency>
+
+        <!-- Importing Orekit for TLE data parsing -->
+        <dependency>
+            <groupId>org.orekit</groupId>
+            <artifactId>orekit</artifactId>
+            <version>11.3</version> <!-- or latest -->
+        </dependency>
+
+        <!-- Importing Google GSON Library for JSON objects -->
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>2.10.1</version> <!-- or latest -->
+        </dependency>
     </dependencies>
 
     <build>
@@ -87,7 +101,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>com.maiwalsh.JavaProducer</mainClass>
+                            <mainClass>com.maiwalsh.CelestrakTLEProducer</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
@@ -106,7 +120,7 @@
                         <configuration>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>com.maiwalsh.JavaProducer</mainClass>
+                                    <mainClass>com.maiwalsh.CelestrakTLEProducer</mainClass>
                                 </transformer>
                             </transformers>
                         </configuration>

@@ -18,7 +18,8 @@
     "containerEnv": {
         "JAVA_HOME": "/usr/lib/jvm/msopenjdk-current",
         "CONFLUENT_BROKER_SERVER": "confluent-broker.recrocog.com:9092", 
-        "KAFKA_TOPIC": "test-topic", 
+        "KAFKA_TOPIC": "celestrak-tle", 
+        "CELESTRAK_URL": "https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle",
         "PRODUCER_INTERVAL_MS": "1000"
     },
     // Configure tool-specific properties.
